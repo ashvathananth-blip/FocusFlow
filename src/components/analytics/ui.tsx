@@ -1,0 +1,34 @@
+import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Button } from '@/components/ui/button';
+export function Badge({children,tone='neutral'}:{children:ReactNode;tone?:'neutral'|'good'|'warning'}) {
+  const text=typeof children==='string'?children:'';
+  const status=text==='Interrupted'?'interrupted':text==='Completed'?'completed':text==='In progress'?'active':tone==='good'?'focused':tone==='warning'?'event':'unknown';
+  return <StatusBadge status={status}>{children}</StatusBadge>;
+}
+export function StatCard({label,value,note}:{label:string;value:ReactNode;note?:ReactNode}) {
+  return <section className="analytics-stat"><h2 className="stat-label">{label}</h2><p className="stat-value">{value}</p>{note&&<p className="stat-note">{note}</p>}</section>;
+}
+export function ChartCard({title,description,children}:{title:string;description?:string;children:ReactNode}) {
+  return <section className="analytics-chart"><h2 className="text-lg font-semibold">{title}</h2>{description&&<p className="chart-description">{description}</p>}<div className="mt-5">{children}</div></section>;
+}
+export function EmptyState({title,description,action=true}:{title:string;description:string;action?:boolean}) {
+  return <section className="analytics-empty"><h2 className="text-xl font-semibold">{title}</h2><p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-zinc-400">{description}</p>{action&&<Button asChild className="mt-6"><Link href="/study">Start a study session</Link></Button>}</section>;
+}
+export function AnalyticsHeader({detail=false}:{detail?:boolean}) {
+  return <header className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-700 pb-5"><Link href="/" className="text-lg font-semibold tracking-tight">Focus Flow <span className="ml-2 text-xs font-normal text-zinc-400">Local attention history</span></Link><nav aria-label="Application navigation" className="flex gap-5 text-sm"><Link href="/study">Study</Link><Link href="/history" aria-current={detail?undefined:'page'}>History</Link></nav></header>;
+}
+export function HistoryLoading() {return <div role="status" className="mx-auto max-w-6xl p-6"><EmptyState title="Loading your history" description="Opening sessions stored in this browser. No camera access is needed." action={false}/></div>;}
+export const formatDuration=(ms:number|null)=>{
+  if(ms===null) return 'Unavailable';
+  if(ms<60000) return `${Math.floor(ms)/1000}s`;
+  const seconds=Math.floor(ms/1000),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds/60)%60;
+  return hours?`${hours}h ${minutes}m ${seconds%60}s`:`${Math.floor(seconds/60)}m ${seconds%60}s`;
+};
+export const percent=(n:number|null)=>n===null?'Unavailable':`${n.toFixed(1)}%`;
+export const dateLabel=(iso:string)=>new Date(iso).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+export const episodeLabel={looking_away:'Looking-away classification',tracking_uncertain:'Tracking uncertain',mixed:'Mixed / no dominant state'} as const;
+export const statusLabel={active:'In progress',ended:'Ended',completed:'Completed',interrupted:'Interrupted'} as const;
+export const SCORE_DISCLOSURE='Visual-attention estimate, not a measure of concentration.';
+export const CREDIT_DISCLOSURE='Uses the existing Stage 2 grace-period credit rules; may differ from observed focused time.';
