@@ -93,3 +93,18 @@ export function reportStorageError(error:unknown) {
   if(typeof window!=='undefined') window.dispatchEvent(new Event('focusflow-history-error'));
 }
 export function storageError() { return latestStorageError; }
+/** Removes saved session records. The IndexedDB schema is unchanged. */
+export async function clearHistory() {
+  const db=await database();
+  await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction('sessions','readwrite');
+    tx.objectStore('sessions').clear();
+    tx.oncomplete=()=>{
+      latestStorageError='';
+      if(typeof window!=='undefined') window.dispatchEvent(new Event('focusflow-history-updated'));
+      resolve();
+    };
+    tx.onerror=()=>reject(tx.error ?? new Error('Local history could not be cleared.'));
+    tx.onabort=()=>reject(tx.error ?? new Error('Clearing local history was interrupted.'));
+  });
+}

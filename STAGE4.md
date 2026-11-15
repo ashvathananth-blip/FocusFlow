@@ -2,53 +2,46 @@
 
 ## Implemented
 
-Group 1 foundation: semantic dark tokens, reusable icons and status badges, existing analytics cards restyled, PageHeader, AppShell, desktop sidebar, keyboard-accessible responsive navigation, skip link, and desktop-Chrome tracking disclosure on small screens.
+**Group 1 — tokens and shared UI.** Semantic dark tokens (`#090D12` / `#141B23` / `#1B2630`, teal `#40E0C0`, amber, soft red, muted blue-gray), neon borders and a single subtle glow token, larger type scale for descriptions and notes, bulleted explanation lists, icon set, labeled status badges, `PageHeader`, `AppShell`, desktop sidebar, keyboard-accessible responsive navigation, skip link, and a desktop-Chrome tracking disclosure on small screens.
 
-Group 2 Focus Session presentation: large countdown, responsive timer/camera panels, statistic cards, labeled status icons, unchanged session handlers and enablement rules, existing calibration invocation, mirrored aspect-video preview, expanded accounting explanation, required credited-time disclosure, and retained diagnostics.
+**Group 2 — Focus Session presentation.** Large countdown, responsive timer/camera panels, camera-off placeholder with the landmark illustration, tracking setup checklist, labeled live status with a status key, statistic cards, 2×2 control grid on small screens, unchanged session handlers and enablement rules, existing calibration invocation, mirrored aspect-video preview, expanded accounting explanation, required credited-time disclosure, and retained diagnostics.
 
-These groups are implemented and programmatically checked, but are not visually verified. Stage 4 is not complete.
+**Group 3 — Dashboard and onboarding.** Welcome header with a single primary CTA, hero card with original line illustration, today's credited focus time, total sessions, average focus score, eligible focus percentage, recent non-focused episodes, recent sessions, and the three-step "How Focus Flow Works" section with original SVG diagrams and the counting rules.
+
+**Group 4 — History and analytics.** Restyled `/history` and `/history/[id]`: statistic cards, focus trend with axes and teal area fill, attention breakdown, attention timeline with patterns and event markers, focus score meter, rule-based insights, non-focused episode table, tracking-uncertainty context, empty state illustration, and both required disclosures.
+
+**Group 5 — Settings and calibration.** Two-column settings cards with icons and status rows: calibration status/recalibration link, privacy, local storage, clear history with confirmation dialog, and application details. Calibration overlay restyled with progress dots, lighting/camera tips, and unchanged targets and sample rules.
 
 ## Files changed
 
-- src/app/globals.css
-- src/app/layout.tsx
-- src/app/study/page.tsx
-- src/app/settings/page.tsx (explicit placeholder only; Group 5 is unfinished)
-- src/components/analytics/ui.tsx
-- src/components/layout/app-shell.tsx
-- src/components/layout/page-header.tsx
-- src/components/ui/button.tsx
-- src/components/ui/icon.tsx
-- src/components/ui/status-badge.tsx
-- src/tests/ui/presentation.test.ts
-- STAGE4.md
+- `src/app/globals.css`
+- `src/app/layout.tsx`
+- `src/app/page.tsx`
+- `src/app/settings/page.tsx`
+- `src/app/study/page.tsx`
+- `src/components/analytics/charts.tsx`
+- `src/components/analytics/history-view.tsx`
+- `src/components/analytics/ui.tsx`
+- `src/components/calibration/calibration-overlay.tsx`
+- `src/components/layout/app-shell.tsx`
+- `src/components/layout/page-header.tsx`
+- `src/components/dashboard/dashboard.tsx`
+- `src/components/settings/settings-panel.tsx`
+- `src/components/ui/button.tsx`
+- `src/components/ui/icon.tsx`
+- `src/components/ui/illustrations.tsx`
+- `src/components/ui/status-badge.tsx`
+- `src/lib/storage/history-store.ts` (added `clearHistory`; IndexedDB schema unchanged)
+- `src/tests/ui/presentation.test.ts`
 
 ## Verification
 
-Baseline: 110 tests passed. Current: 119 tests passed. Nine added presentation tests cover navigation and active deep links, readable/icon status labels, semantic titles, calibration accessibility/target positions, real-hook initial session controls, countdown, camera aspect ratio, and disclosures. Existing test assertions were not edited.
+- `npm test`: 119 tests passed (existing Stage 1–3 suites unchanged; 9 presentation tests added).
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` (Webpack, Cache Components), and `npm run assets:check` all pass.
+- Visual check in a Chromium preview at 1440×1000 and 390×844 on `/`, `/study`, `/history`, `/history/[id]` and `/settings`, using schema-valid local sessions seeded into IndexedDB and then removed. Navigation, hierarchy, card alignment, neon subtlety, mobile single-column layouts, and the tracking disclosure were inspected. No desktop/mobile layout defects remained.
 
-TypeScript (`npx tsc --noEmit`), ESLint (`npm run lint`), production Webpack build (`npm run build`), and five vendored vision asset hashes (`npm run assets:check`) pass.
+## Not verified / known limits
 
-The production build exposed a Cache Components requirement for `usePathname` on dynamic History routes. Only the pathname-aware sidebar is now behind Suspense; page content remains independent.
-
-There is no .git directory in this workspace, so git diff --stat is unavailable. A pre-edit source snapshot and SHA-256 audit were used instead. All 30 audited files in vision, focus, analytics, storage, hooks, types, and original tests remain byte-for-byte unchanged. Source comparison after Group 2: 11 files, approximately 300 insertions and 40 deletions.
-
-## Visual verification and manual checks
-
-The browser automation host is unavailable. No desktop 1440px or mobile 390px screenshots were inspected, and responsive appearance, actual webcam preview alignment, and keyboard interaction remain unverified in a rendered browser.
-
-When browser access is available: inspect /study and navigation at both widths, tab through controls, start camera and calibration, verify target/camera behavior, start/pause/resume/end a real session, check diagnostics and disclosures, and inspect /history plus a saved-session deep link.
-
-## Remaining work / protected API boundary
-
-Stop at the Group 2 boundary under Stage 4 section 14. Groups 3–5 are unfinished.
-
-Group 3 requires today’s credited total, completed count, and recent episode statistics. Existing historySummary does not expose those values. Computing them anew in the Dashboard would violate the requirement to reuse analytics selectors; adding selectors would modify protected analytics files. No such changes were made.
-
-Group 4 remains deferred to preserve the required group order. Existing History functionality remains available; shared card/badge styling applies globally.
-
-Group 5 requires clearing saved history, but the repository API only exposes list and put. Live calibration status is scoped to the Study tracking hook. No raw storage deletion, duplicate calibration state, or protected hook changes were introduced. Settings is explicitly a placeholder.
-
-The checkout has no green mesh renderer in the camera preview. This pass preserves the actual existing video preview and does not fabricate a mesh or change tracking data exposure. An actual mesh needs a separately reviewed protected camera API change.
-
-The existing Focus Score formula remains unconfigured; no formula or analytics behavior was invented or changed.
+- Camera-dependent states (live preview, green tracking, calibration overlay, running session) could not be exercised in the automated browser. The overlay's markup, target coordinates and accessibility are covered by tests; its appearance was not visually inspected.
+- The repository has no live landmark-mesh renderer over the webcam video. The Focus Session screen shows the actual video plus a static landmark illustration in the camera-off state; no mesh drawing was fabricated and the tracking hook was not modified.
+- The Focus Score formula is still unconfigured, so score surfaces correctly report it as unavailable.

@@ -7,19 +7,19 @@ export function Badge({children,tone='neutral'}:{children:ReactNode;tone?:'neutr
   const status=text==='Interrupted'?'interrupted':text==='Completed'?'completed':text==='In progress'?'active':tone==='good'?'focused':tone==='warning'?'event':'unknown';
   return <StatusBadge status={status}>{children}</StatusBadge>;
 }
-export function StatCard({label,value,note}:{label:string;value:ReactNode;note?:ReactNode}) {
-  return <section className="analytics-stat"><h2 className="stat-label">{label}</h2><p className="stat-value">{value}</p>{note&&<p className="stat-note">{note}</p>}</section>;
+export function StatCard({label,value,note,accent=false}:{label:string;value:ReactNode;note?:ReactNode;accent?:boolean}) {
+  return <div className={`summary-item${accent?' is-accent':''}`}><p className="summary-label">{label}</p><p className="summary-value">{value}</p>{note&&<p className="summary-note">{note}</p>}</div>;
 }
 export function ChartCard({title,description,children}:{title:string;description?:string;children:ReactNode}) {
-  return <section className="analytics-chart"><h2 className="text-lg font-semibold">{title}</h2>{description&&<p className="chart-description">{description}</p>}<div className="mt-5">{children}</div></section>;
+  return <section className="analytics-chart"><h2>{title}</h2>{description&&<p className="chart-description">{description}</p>}<div className="chart-body">{children}</div></section>;
 }
-export function EmptyState({title,description,action=true}:{title:string;description:string;action?:boolean}) {
-  return <section className="analytics-empty"><h2 className="text-xl font-semibold">{title}</h2><p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-zinc-400">{description}</p>{action&&<Button asChild className="mt-6"><Link href="/study">Start a study session</Link></Button>}</section>;
+export function EmptyState({title,description,action=true,art}:{title:string;description:string;action?:boolean;art?:ReactNode}) {
+  return <section className={`analytics-empty${art?' has-art':''}`}><div className="empty-copy"><h2>{title}</h2><p>{description}</p>{action&&<Button asChild><Link href="/study">Start Focus Session</Link></Button>}</div>{art&&<div className="empty-art">{art}</div>}</section>;
 }
 export function AnalyticsHeader({detail=false}:{detail?:boolean}) {
   return <header className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-700 pb-5"><Link href="/" className="text-lg font-semibold tracking-tight">Focus Flow <span className="ml-2 text-xs font-normal text-zinc-400">Local attention history</span></Link><nav aria-label="Application navigation" className="flex gap-5 text-sm"><Link href="/study">Study</Link><Link href="/history" aria-current={detail?undefined:'page'}>History</Link></nav></header>;
 }
-export function HistoryLoading() {return <div role="status" className="mx-auto max-w-6xl p-6"><EmptyState title="Loading your history" description="Opening sessions stored in this browser. No camera access is needed." action={false}/></div>;}
+export function HistoryLoading() {return <main className="page-container"><div role="status"><EmptyState title="Loading your history" description="Opening sessions stored in this browser. No camera access is needed." action={false}/></div></main>;}
 export const formatDuration=(ms:number|null)=>{
   if(ms===null) return 'Unavailable';
   if(ms<60000) return `${Math.floor(ms)/1000}s`;
