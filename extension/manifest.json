@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "FocusFlow Distraction Shield",
+  "version": "1.0.0",
+  "description": "Block selected websites during a FocusFlow study session.",
+  "permissions": ["storage", "alarms", "declarativeNetRequestWithHostAccess"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "FocusFlow Shield" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "content_scripts": [{ "matches": ["http://localhost:3000/*"], "js": ["lib.js", "content.js"], "run_at": "document_start" }],
+  "web_accessible_resources": [{ "resources": ["blocked.html", "blocked.js", "blocked.css"], "matches": ["http://*/*", "https://*/*"] }]
+}

@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="blocked.css"><title>FocusFlow Shield</title></head><body>
+<main class="blocked">
+  <header class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3.5v5.5c0 4.4-7 9-7 9s-7-4.6-7-9V6.5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span>
+    <span class="brand-copy"><strong>FocusFlow</strong><small>Distraction Shield</small></span>
+  </header>
+  <div class="art" aria-hidden="true">
+    <svg viewBox="0 0 120 120" width="96" height="96" fill="none">
+      <circle cx="60" cy="60" r="52" stroke="rgba(148,163,184,.14)" stroke-width="1.5"/>
+      <circle cx="60" cy="60" r="40" stroke="rgba(82,224,196,.22)" stroke-width="1.5"/>
+      <path d="M60 30l17 8.5V52c0 10.7-17 22-17 22s-17-11.3-17-22v-13.5z" stroke="#52e0c4" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M52 52l6 6 11-12" stroke="#52e0c4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <p class="eyebrow">Session in progress</p>
+  <h1>This site can wait.</h1>
+  <p class="lede">This website is blocked while your FocusFlow session is running. Return to your study session to continue.</p>
+  <p class="domain-chip"><span class="meta">Blocked site</span><span id="domain">Checking blocked domain…</span></p>
+  <div class="actions">
+    <button id="return-focusflow" class="btn btn-primary" type="button">Return to FocusFlow</button>
+  </div>
+  <p id="return-status" class="status-note" role="status" aria-live="polite"></p>
+  <p id="error" class="error" role="alert"></p>
+  <footer>Blocking rules and website permissions are managed by the Distraction Shield extension.</footer>
+</main>
+<script src="lib.js"></script><script src="blocked.js"></script></body></html>

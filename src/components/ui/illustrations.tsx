@@ -1,7 +1,7 @@
-const teal = '#4EE3C4';
-const muted = '#8A9099';
+const teal = '#52E0C4';
+const muted = '#7C8CA1';
 const faint = 'rgba(255,255,255,0.10)';
-const surface = '#101113';
+const surface = '#111720';
 const surfaceDeep = '#0B0C0E';
 
 export function StudyScene() {
