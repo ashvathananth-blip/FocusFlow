@@ -1,6 +1,6 @@
 // All inputs in this suite are DETERMINISTIC SYNTHETIC data.
 // Passing tests establish implementation behavior, never human gaze accuracy.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Features, Landmark, Sample } from '@/types/vision';
 import { extractFeatures, normalizeEye } from '@/lib/vision/features';
 import { coordinateError, fitRegression, median, normalizeInput, predict } from '@/lib/vision/regression';
@@ -11,6 +11,9 @@ import { GazeEstimator } from '@/lib/vision/gaze-estimator';
 import { GazeClassifier } from '@/lib/vision/classifier';
 import { TRACKING_QUALITY, trackingQuality } from '@/lib/vision/tracking-quality';
 import { summarize } from '@/lib/vision/diagnostics';
+import { createVideoFrameScheduler, createVisibilityRecoveryController, inferenceDelayMs, shouldPublishUiUpdate } from '@/lib/vision/scheduling';
+import { releaseCamera } from '@/lib/vision/camera';
+import { createInferenceRetryPolicy, inspectInferenceFrame } from '@/lib/vision/inference-lifecycle';
 
 const p = (x: number, y: number): Landmark => ({ x, y, z: 0 });
 function syntheticLandmarks(): Landmark[] {
@@ -120,9 +123,128 @@ describe('synthetic calibration, outliers, and target-group validation', () => {
     expect(collector.add(vector, 825)).toBe('settling');
     expect(() => collector.add(null, 15000)).toThrow();
   });
+  it('pauses through a transient 600 ms inference gap and resumes only on fresh valid features', () => {
+    const collector = new CalibrationCollector(0), vector = [.5,0,.5,0,0,0];
+    for (let i = 0; i < 6; i++) collector.add(vector, 800 + i);
+    collector.pause(1300);
+    expect(collector.paused).toBe(true);
+    expect(collector.resume(1900)).toBe('resumed');
+    expect(collector.samples.filter(s => s.group === 0)).toHaveLength(6);
+    expect(collector.add(null, 1901)).toBe('collecting');
+    collector.add([NaN, .5, .5, .5, 0, 0], 1902);
+    expect(collector.samples.filter(s => s.group === 0)).toHaveLength(6);
+    collector.add(vector, 1903);
+    expect(collector.samples.filter(s => s.group === 0)).toHaveLength(7);
+  });
+  it('restarts only the current point after prolonged tracking loss and recovers after a fresh sample', () => {
+    const collector = new CalibrationCollector(0), vector = [.5,0,.5,0,0,0];
+    for (let i = 0; i < 8; i++) collector.add(vector, 800 + i);
+    collector.pause(1400);
+    expect(collector.restartAfterProlongedLoss(1400 + CALIBRATION.prolongedLossMs + 1)).toBe(true);
+    expect(collector.group).toBe(0);
+    expect(collector.samples).toHaveLength(0);
+    expect(collector.paused).toBe(true);
+    expect(collector.resume(5000)).toBe('resumed');
+    expect(collector.add(vector, 5000)).toBe('settling');
+    expect(collector.add(vector, 5799)).toBe('settling');
+    expect(collector.add(vector, 5800)).toBe('collecting');
+    expect(collector.samples).toHaveLength(1);
+  });
+  it('retries the current calibration point without discarding completed points', () => {
+    const collector = new CalibrationCollector(0), vector = [.5,0,.5,0,0,0];
+    for (let i = 0; i < 24; i++) collector.add(vector, 800 + i);
+    expect(collector.group).toBe(1);
+    collector.add(vector, 1600);
+    collector.retryCurrent(1700);
+    expect(collector.group).toBe(1);
+    expect(collector.samples.filter(s => s.group === 0)).toHaveLength(24);
+    expect(collector.samples.filter(s => s.group === 1)).toHaveLength(0);
+  });
   it('calculates normalized Euclidean error and even medians', () => {
     expect(coordinateError({x:0,y:0},{x:.3,y:.4})).toBeCloseTo(.5);
     expect(median([4,1,3,2])).toBe(2.5);
+  });
+});
+
+describe('inference scheduling and UI publication', () => {
+  it('requires a live, dimensioned camera frame newer than the foreground baseline', () => {
+    const base = { readyState: 2, videoWidth: 640, videoHeight: 480, currentTime: 12.1, streamActive: true, trackStates: [{ readyState: 'live', muted: false }] };
+    expect(inspectInferenceFrame(base, 2, 12.0, 12.1)).toEqual({ ready: true, reason: 'fresh video frame' });
+    expect(inspectInferenceFrame({ ...base, currentTime: 12 }, 2, 12, 12)).toMatchObject({ ready: false, reason: expect.stringContaining('newer') });
+    expect(inspectInferenceFrame({ ...base, trackStates: [{ readyState: 'ended' }] }, 2, null)).toMatchObject({ ready: false, reason: expect.stringContaining('live') });
+    expect(inspectInferenceFrame({ ...base, videoWidth: 0 }, 2, null)).toMatchObject({ ready: false, reason: expect.stringContaining('dimensions') });
+    expect(inspectInferenceFrame({ ...base, readyState: 1 }, 2, null)).toMatchObject({ ready: false, reason: expect.stringContaining('current frame') });
+  });
+  it('bounds consecutive inference exception retries and resets after a successful fresh inference', () => {
+    const retry = createInferenceRetryPolicy(3);
+    expect(retry.failed()).toEqual({ failures: 1, retry: true, delayMs: 150 });
+    expect(retry.failed()).toEqual({ failures: 2, retry: true, delayMs: 300 });
+    expect(retry.failed()).toEqual({ failures: 3, retry: false, delayMs: 600 });
+    retry.succeeded();
+    expect(retry.failures).toBe(0);
+    expect(retry.failed().retry).toBe(true);
+  });
+  it('caps inference cadence at 15 fps and publishes sampled UI state at 5 fps', () => {
+    expect(inferenceDelayMs(null, 0)).toBeCloseTo(1000 / 15);
+    expect(inferenceDelayMs(1000, 1060)).toBeCloseTo(1000 / 15 - 60);
+    expect(inferenceDelayMs(1000, 1070)).toBe(0);
+    expect(shouldPublishUiUpdate(null, 1000)).toBe(true);
+    expect(shouldPublishUiUpdate(1000, 1100)).toBe(false);
+    expect(shouldPublishUiUpdate(1000, 1200)).toBe(true);
+    expect(shouldPublishUiUpdate(1000, 1050, true)).toBe(true);
+  });
+  it('uses video-frame callbacks without scheduling duplicate or concurrent frames', () => {
+    vi.useFakeTimers();
+    const callbacks: { deliver?: (now: number, metadata: { mediaTime: number }) => void } = {};
+    const request = vi.fn((callback: (now: number, metadata: { mediaTime: number }) => void) => { callbacks.deliver = callback; return 9; });
+    const cancel = vi.fn();
+    const onFrame = vi.fn();
+    const scheduler = createVideoFrameScheduler({ requestVideoFrameCallback: request, cancelVideoFrameCallback: cancel }, onFrame);
+    expect(scheduler.schedule(10)).toBe(true);
+    expect(scheduler.schedule(10)).toBe(false);
+    vi.advanceTimersByTime(10);
+    expect(request).toHaveBeenCalledOnce();
+    callbacks.deliver?.(12, { mediaTime: 4.2 });
+    expect(onFrame).toHaveBeenCalledWith(4.2);
+    scheduler.schedule(0); vi.advanceTimersByTime(0);
+    scheduler.cancel();
+    expect(cancel).toHaveBeenCalledWith(9);
+    vi.useRealTimers();
+  });
+  it('suspends once when hidden and resumes once after repeated foreground events', async () => {
+    let visible=true;const suspend=vi.fn(),resume=vi.fn(async()=>true);
+    const controller=createVisibilityRecoveryController(()=>visible,suspend,resume);
+    visible=false;controller.update();controller.update();expect(suspend).toHaveBeenCalledOnce();expect(controller.suspended).toBe(true);
+    visible=true;controller.update();controller.update();
+    await vi.waitFor(()=>expect(controller.suspended).toBe(false));
+    expect(resume).toHaveBeenCalledOnce();expect(controller.suspended).toBe(false);controller.dispose();
+  });
+  it('keeps tracking unavailable after failed camera recovery and retries on a later foreground event', async () => {
+    let visible=true,ready=false;const suspend=vi.fn(),resume=vi.fn(async()=>ready);
+    const controller=createVisibilityRecoveryController(()=>visible,suspend,resume);
+    visible=false;controller.update();visible=true;controller.update();await vi.waitFor(()=>expect(resume).toHaveBeenCalledOnce());
+    expect(controller.suspended).toBe(true);expect(resume).toHaveBeenCalledOnce();
+    ready=true;controller.update();await vi.waitFor(()=>expect(controller.suspended).toBe(false));
+    expect(controller.suspended).toBe(false);expect(resume).toHaveBeenCalledTimes(2);controller.dispose();
+  });
+  it('requests one recovery while retaining one scheduler loop', async () => {
+    let visible = true;
+    const suspend = vi.fn(), resume = vi.fn(async () => true);
+    const controller = createVisibilityRecoveryController(() => visible, suspend, resume);
+    controller.requestRecovery(); controller.requestRecovery();
+    await vi.waitFor(() => expect(controller.suspended).toBe(false));
+    expect(suspend).toHaveBeenCalledOnce(); expect(resume).toHaveBeenCalledOnce();
+    controller.dispose();
+  });
+  it('cancels fallback frame timers and stops every camera track', () => {
+    vi.useFakeTimers();
+    const onFrame = vi.fn(), scheduler = createVideoFrameScheduler({}, onFrame);
+    scheduler.schedule(50); scheduler.cancel(); vi.advanceTimersByTime(50);
+    expect(onFrame).not.toHaveBeenCalled();
+    const tracks = [vi.fn(), vi.fn()];
+    releaseCamera({ getTracks: () => tracks.map(stop => ({ stop })) } as unknown as MediaStream);
+    expect(tracks.every(stop => stop.mock.calls.length === 1)).toBe(true);
+    vi.useRealTimers();
   });
 });
 
@@ -158,9 +280,12 @@ describe('synthetic classification, tracking quality and measurement accounting'
     expect(trackingQuality(features,calibration,[{x:0,y:0},{x:2,y:2}]).quality).toBe('low');
   });
   it('includes inference-free edges in gaps and wall-duration in measured FPS', () => {
-    const s = summarize([{at:100,latencyMs:10},{at:200,latencyMs:20},{at:900,latencyMs:30}],0,2000);
+    const s = summarize([{at:100,latencyMs:10,completionGapMs:null,frameIntervalMs:null,decodedFrameDelta:null,scheduledIntervalMs:null},{at:200,latencyMs:20,completionGapMs:100,frameIntervalMs:66,decodedFrameDelta:2,scheduledIntervalMs:70},{at:900,latencyMs:30,completionGapMs:700,frameIntervalMs:650,decodedFrameDelta:12,scheduledIntervalMs:800}],0,2000);
     expect(s.fps).toBe(1.5); expect(s.medianIntervalMs).toBe(400);
     expect(s.maximumGapMs).toBe(1100); expect(s.gapsOver500Ms).toBe(2); expect(s.medianLatencyMs).toBe(20);
+    expect(s.medianCompletionGapMs).toBe(400); expect(s.maximumCompletionGapMs).toBe(700);
+    expect(s.medianFrameIntervalMs).toBe(358); expect(s.maximumFrameIntervalMs).toBe(650); expect(s.medianScheduledIntervalMs).toBe(435);
+    expect(s.medianDecodedFrameDelta).toBe(7);
     expect(summarize([],0,30000).maximumGapMs).toBe(30000);
     expect(summarize([],0,30000).fps).toBe(0);
   });

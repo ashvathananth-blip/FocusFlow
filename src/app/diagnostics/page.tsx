@@ -13,7 +13,7 @@ const scenarios: Scenario[] = ["A-visible-tab", "B-other-tab", "C-other-app", "D
 const subscribeCapability = () => () => {};
 const pipCapability = () => "documentPictureInPicture" in window;
 export default function Diagnostics() {
-  const { videoRef, camera, permission, modelStatus, error, readout, stats, calibration, progress, visibility, experiment, results, start, stop, calibrate, cancelCalibration, startExperiment, stopExperiment, exportResults } = useGazeTracking();
+  const { videoRef, camera, permission, modelStatus, error, readout, stats, calibration, progress, visibility, experiment, results, start, stop, calibrate, retryCalibrationPoint, cancelCalibration, startExperiment, stopExperiment, exportResults } = useGazeTracking();
   const [scenario, setScenario] = useState<Scenario>("A-visible-tab");
   const [pipStatus, setPipStatus] = useState("not tested");
   const pipSupported = useSyncExternalStore(subscribeCapability, pipCapability, () => false);
@@ -59,6 +59,10 @@ export default function Diagnostics() {
     ["Live features: Lx, Ly, Rx, Ry, yaw, pitch", readout.features?.map(v => number(v, 5)).join(", ") ?? "unavailable"],
     ["Tracking quality", readout.quality], ["Inference FPS (5s)", number(stats.fps)],
     ["Median latency", `${number(stats.medianLatencyMs)} ms`], ["Median interval", `${number(stats.medianIntervalMs)} ms`],
+    ["Median / max completion gap", `${number(stats.medianCompletionGapMs)} / ${number(stats.maximumCompletionGapMs)} ms`],
+    ["Median / max decoded-frame interval", `${number(stats.medianFrameIntervalMs)} / ${number(stats.maximumFrameIntervalMs)} ms`],
+    ["Median newly decoded frames between inferences", number(stats.medianDecodedFrameDelta)],
+    ["Median scheduled-loop interval", `${number(stats.medianScheduledIntervalMs)} ms`],
     ["Maximum gap (5s)", `${number(stats.maximumGapMs)} ms`], ["Gaps >500 ms (5s)", stats.gapsOver500Ms],
     ["Calibration", calibration?.status ?? "not calibrated"], ["Valid samples", calibration?.count ?? "unavailable"],
     ["Held-out median error", number(calibration?.error ?? null, 3)],
@@ -97,6 +101,6 @@ export default function Diagnostics() {
       })}</tbody></table></div>
     </section>
     <details className="rounded border p-4"><summary>Engineering thresholds and limitations</summary><p>Both eyes required; aperture/width 0.08–0.65. Head yaw limit 1 radian, pitch 0.9. Calibration: 800 ms settling, 24 samples per target, 16 minimum after a 3.5-MAD filter (scale floor 0.015). Ridge λ=0.1, unpenalized intercept, training-only standardization. Poor: median held-out error &gt;0.20 or any target median &gt;0.35.</p><p>Unavailable: unusable landmarks. Low: uncalibrated/poor fit, standardized feature RMS &gt;3, five-prediction spread &gt;1.6, or aperture &lt;0.08. High requires error ≤0.12, feature RMS ≤1.5, spread ≤0.08, aperture ≥0.15; other valid tracking is medium. Low/unavailable gives unknown immediately. Stale inference over 500 ms clears classification when execution resumes. Screen margin 8%; on-screen retention adds 5% hysteresis. Quality-distance scale floors: iris X 0.025, iris Y 0.020 eye-width units per eye; yaw 0.10 rad, pitch 0.08 rad, centered on calibration means. Regression training scales remain unchanged. High uses the calibrated inner region [0.1, 0.9] on each axis, retained to [0.05, 0.95] with high quality. Other accepted on-screen estimates are medium; both earn credit. Smoothing requires five valid predictions. These are engineering assumptions, not validated confidence scores.</p><p>Synchronous CPU VIDEO inference is capped at 15 calls/second, using unique decoded frames at 640×480 ideal camera size. A worker needs latency evidence and frame-transfer testing; this spike uses a measurable main-thread pipeline. Suspension can prevent UI updates until resume. Document PiP leaves inference in the source page, so results apply only to this arrangement.</p></details>
-    {progress && <CalibrationOverlay progress={progress} cancel={cancelCalibration} />}
+    {progress && <CalibrationOverlay progress={progress} cancel={cancelCalibration} retry={retryCalibrationPoint} notice={error} />}
   </main>;
 }

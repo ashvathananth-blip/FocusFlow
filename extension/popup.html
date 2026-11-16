@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="popup.css"><title>FocusFlow Shield</title></head><body><main class="popup">
+<header class="brand">
+  <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3.5v5.5c0 4.4-7 9-7 9s-7-4.6-7-9V6.5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span>
+  <span class="brand-copy"><strong>FocusFlow</strong><small>Distraction Shield</small></span>
+  <span class="brand-state" title="Local extension"></span>
+</header>
+<div class="body">
+  <section class="master-section" aria-labelledby="master-title">
+    <label class="master-toggle" for="master">
+      <span class="master-copy"><strong id="master-title">Website Blocking</strong><small id="master-description">Controls every site without changing its individual settings.</small></span>
+      <span class="master-state"><input id="master" type="checkbox" aria-describedby="master-description" disabled><span id="master-state">Checking</span></span>
+    </label>
+    <p id="master-explanation" class="fine" aria-live="polite">When ON, blocking follows your study session or outside-session setting.</p>
+  </section>
+  <section aria-labelledby="protection-title">
+    <p class="meta" id="protection-title">Protection</p>
+    <p id="status" role="status">Checking extension state…</p>
+    <p id="connection" class="fine">Installed · Connection status is displayed on the study page</p>
+    <p id="permissions" class="fine">Permissions: checking…</p>
+    <ul id="missing"></ul>
+    <button id="grant" class="btn btn-outline" type="button">Grant default website permissions</button>
+  </section>
+  <section aria-labelledby="blocked-title">
+    <div class="section-head"><p class="meta" id="blocked-title">Blocked websites</p><span class="fine">Defaults &amp; rules</span></div>
+    <ul id="domains" class="domain-list"></ul>
+    <button id="manage" class="link-button" type="button">Manage blocked websites <span aria-hidden="true">→</span></button>
+  </section>
+  <section aria-labelledby="options-title">
+    <p class="meta" id="options-title">Session behavior</p>
+    <label class="toggle"><input id="override" type="checkbox"><span><strong>Keep blocking without live session</strong><small>Rules stay installed when no study session is running.</small></span></label>
+  </section>
+</div>
+<footer class="foot"><a href="http://localhost:3000/study" target="_blank" rel="noreferrer">Open FocusFlow</a><span class="fine">Runs locally</span></footer>
+<p id="error" class="error" role="alert"></p>
+</main><script src="lib.js"></script><script src="popup.js"></script></body></html>

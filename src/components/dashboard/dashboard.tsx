@@ -39,8 +39,9 @@ export function Dashboard() {
         <div className="today-art"><StudyScene /></div>
       </section>
       {history.error && <p role="alert" className="notice">{history.error}</p>}
-      <section className="summary-band" aria-label="Saved history summary">
+      <section className="summary-band is-four" aria-label="Saved history summary">
         <div className="summary-item"><p className="summary-label">Total study sessions</p><p className="summary-value">{history.loading ? '…' : sessions.length}</p><p className="summary-note">Every saved session in this browser, including short and interrupted records.</p></div>
+        <div className="summary-item"><p className="summary-label">Completed sessions</p><p className="summary-value">{history.loading ? '…' : sessions.filter(session => session.status === 'completed').length}</p><p className="summary-note">Records that reached their full timer goal. Interrupted and active checkpoints are excluded.</p></div>
         <div className="summary-item"><p className="summary-label">Average focus score</p><p className="summary-value">{history.loading ? '…' : summary.averageScore === null ? 'Unavailable' : summary.averageScore.toFixed(1)}</p><p className="summary-note">{SCORE_DISCLOSURE}</p></div>
         <div className="summary-item"><p className="summary-label">Eligible focus percentage</p><p className="summary-value">{history.loading ? '…' : percent(summary.focusPercentage)}</p><p className="summary-note">From the existing history summary. Pauses and dropped inference time stay out of the denominator.</p></div>
       </section>

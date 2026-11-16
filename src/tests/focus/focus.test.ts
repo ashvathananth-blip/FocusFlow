@@ -158,6 +158,15 @@ describe('lifecycle, unavailable inference, and precedence', () => {
     expect(s.focus.nonFocusedSince).toBe(400);
     expect(s.diagnostics.some(e=>e.message.includes('Camera stopped'))).toBe(true);
   });
+  it('background frame loss remains tracking uncertainty and does not reset the live session', () => {
+    let s=feed(running(),1000);const lifecycle=s.lifecycle,credit=s.creditedMs;
+    const unavailable=trackingSignal({classification:'unknown',quality:'unavailable',faceDetected:null});
+    expect(unavailable).toBe('invalid');
+    s=updateSession(s,{type:'interrupt',at:1100,reason:'FocusFlow tab hidden'});
+    expect(s.lifecycle).toBe(lifecycle);expect(s.focus.signal).toBe('invalid');expect(s.focus.attention).toBe('unknown');
+    expect(s.focus.state).not.toBe('low');expect(s.creditedMs).toBe(credit);
+    s=sample(s,1200,'on-screen');expect(s.lifecycle).toBe('running');expect(s.creditedMs).toBe(credit);
+  });
   it('ignores duplicate, backward and nonfinite event timestamps', () => {
     const s=feed(running(),1000);
     for(const at of [1000,999,NaN,Infinity]) expect(sample(s,at)).toBe(s);

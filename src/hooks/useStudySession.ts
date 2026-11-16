@@ -6,14 +6,25 @@ import { useGazeTracking, type Readout } from './useGazeTracking';
 import { focusNotifications } from '@/lib/focus/notifications';
 import { createSession, updateSession, type TimerEvent } from '@/lib/focus/timer-engine';
 import { clockDiscontinuity, trackingSignal, type ClockSnapshot } from '@/lib/focus/tracking-input';
+import { lifecycleMessage, makeShieldMessage, SHIELD_ORIGIN, SHIELD_PROTOCOL, validShieldAck } from '@/lib/extension/bridge';
+import { shouldPublishUiUpdate } from '@/lib/vision/scheduling';
 
 export function useStudySession() {
   const engine = useRef(createSession());
   const historyWriter = useRef(new SessionWriter());
   const [session, setSession] = useState(createSession);
   const [notificationStatus, setNotificationStatus] = useState('not requested');
+  const [shieldStatus, setShieldStatus] = useState<{connected:boolean;blockingActive:boolean;syncLost:boolean}>({connected:false,blockingActive:false,syncLost:false});
   const alive = useRef(false);
   const clock = useRef<ClockSnapshot | null>(null);
+  const lastSessionPublishAt = useRef<number|null>(null);
+  const shieldSession = useRef<string|null>(null), shieldSequence = useRef(0);
+  const sendShield = useCallback((type:'start'|'pause'|'resume'|'end'|'complete'|'heartbeat'|'ping') => {
+    if(typeof window==='undefined'||window.location.origin!==SHIELD_ORIGIN)return;
+    const id=shieldSession.current ?? 'connection-probe';
+    const message=makeShieldMessage(type,id,shieldSequence.current++);
+    window.postMessage(message,SHIELD_ORIGIN);
+  },[]);
   const dispatch = useCallback((event: TimerEvent) => {
     const before = engine.current;
     const currentClock = { monotonic: event.at, wall: Date.now() };
@@ -27,7 +38,11 @@ export function useStudySession() {
     const next = updateSession(intermediate, event);
     historyWriter.current.receive(intermediate,event,next);
     engine.current = next;
-    if (alive.current) setSession(next);
+    const stateBoundary=before.lifecycle!==next.lifecycle||before.focus.state!==next.focus.state||before.focus.manual!==next.focus.manual||before.focus.distractionCount!==next.focus.distractionCount||before.focus.nonFocusedCounted!==next.focus.nonFocusedCounted;
+    const lifecycleEvent=event.type!=='sample'&&event.type!=='tick';
+    if (alive.current&&(lifecycleEvent||stateBoundary||shouldPublishUiUpdate(lastSessionPublishAt.current,event.at))) { setSession(next); lastSessionPublishAt.current=event.at; }
+    const shieldLifecycle=lifecycleMessage({lifecycle:before.lifecycle,manual:before.focus.manual},{lifecycle:next.lifecycle,manual:next.focus.manual});
+    if(shieldLifecycle)sendShield(shieldLifecycle);
     const lastLog = before.diagnostics[before.diagnostics.length - 1];
     const logStart = lastLog ? next.diagnostics.indexOf(lastLog) + 1 : 0;
     for (const entry of next.diagnostics.slice(logStart)) console.debug('[FocusFlow Stage 2]', entry);
@@ -38,7 +53,7 @@ export function useStudySession() {
         catch { setNotificationStatus('Browser could not display the notification'); }
       }
     }
-  }, []);
+  }, [sendShield]);
   const onSample = useCallback((readout: Readout) => {
     if (readout.at !== null) dispatch({ type: 'sample', at: readout.at, signal: trackingSignal(readout), setup: readout.calibrating, reason: `${readout.reason}; ${readout.reasons.join('; ')}` });
   }, [dispatch]);
@@ -52,25 +67,45 @@ export function useStudySession() {
       dispatch({ type: 'interrupt', at: performance.now(), reason: `Browser lifecycle: ${event.type}` });
       writer.flush(true);
     };
+    const checkpointWhenHidden = () => { if(document.visibilityState==='hidden')writer.flush(true); };
     const interval = setInterval(tick, 100);
+    // Retry briefly for late content-script injection, then keep checking while
+    // the page is open so a worker restart or extension reload can reconnect.
+    let attempts=0;
+    const ping=()=>{sendShield('ping');attempts++;};
+    ping();
+    const retry=setInterval(()=>{if(attempts<8)ping();},750);
+    const ack=(event:MessageEvent)=>{
+      if(event.source!==window||event.origin!==SHIELD_ORIGIN)return;
+      const data=event.data;
+      if(data?.protocol!==SHIELD_PROTOCOL||data.version!==1||data.type!=='ack'||!validShieldAck(data))return;
+      if(data.sequence>=shieldSequence.current)return;
+      if(data.acknowledged&&data.state)setShieldStatus({connected:true,blockingActive:data.state.blockingActive,syncLost:data.state.syncLost});
+      else if(data.acknowledged&&data.requestType==='ping')setShieldStatus({connected:true,blockingActive:false,syncLost:false});
+    };
+    window.addEventListener('message',ack);
+    const heartbeat=setInterval(()=>{if(engine.current.lifecycle==='running'&&shieldSession.current)sendShield('heartbeat');},15000);
     const stopCheckpoints=writer.startCheckpointClock();
     // Clear continuity at lifecycle boundaries, even if no watchdog ran while hidden.
-    document.addEventListener('visibilitychange', interrupt);
+    // The gaze hook owns visibility interruption so the timer receives one
+    // continuity event, while this hook still checkpoints promptly on hide.
+    document.addEventListener('visibilitychange', checkpointWhenHidden);
     document.addEventListener('freeze', interrupt);
     window.addEventListener('pagehide', interrupt);
     window.addEventListener('pageshow', interrupt);
     return () => {
-      alive.current = false; clearInterval(interval); stopCheckpoints();
+      alive.current = false; clearInterval(interval); clearInterval(retry); clearInterval(heartbeat); window.removeEventListener('message',ack); stopCheckpoints();
       writer.finish('interrupted');
-      document.removeEventListener('visibilitychange', interrupt);
+      document.removeEventListener('visibilitychange', checkpointWhenHidden);
       document.removeEventListener('freeze', interrupt);
       window.removeEventListener('pagehide', interrupt);
       window.removeEventListener('pageshow', interrupt);
     };
-  }, [dispatch]);
+  }, [dispatch,sendShield]);
   const startSession = (goalMs: number) => {
     if (engine.current.lifecycle === 'running') return;
     const at = performance.now();
+    shieldSession.current=crypto.randomUUID();shieldSequence.current=0;
     engine.current = createSession(goalMs, at);
     dispatch({ type: 'start', at });
     historyWriter.current.begin(engine.current,calibrationMetadata(tracking.calibration));
@@ -81,5 +116,5 @@ export function useStudySession() {
     try { setNotificationStatus(await Notification.requestPermission()); }
     catch { setNotificationStatus('Permission request failed'); }
   };
-  return { tracking, session, startSession, control, enableNotifications, notificationStatus };
+  return { tracking, session, startSession, control, enableNotifications, notificationStatus, shieldStatus };
 }
