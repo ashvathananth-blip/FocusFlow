@@ -1447,3 +1447,19 @@ summary { cursor: pointer; }
 
 .settings-section .shield-note { margin-top: 12px; }
 .settings-section .shield-setup { margin-top: 4px; }
+
+/* Judge installation card */
+.shield-install { padding: clamp(22px, 3vw, 36px); border: 1px solid rgba(82, 224, 196, .23); border-radius: 20px; background: radial-gradient(ellipse at top right, rgba(82, 224, 196, .07), transparent 65%), var(--surface); }
+.shield-install-heading { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+.shield-install-heading h2 { font-size: clamp(22px, 3vw, 28px); }
+.shield-install-heading .page-description { max-width: 600px; margin-top: 10px; }
+.shield-install-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; flex-shrink: 0; }
+.shield-install-actions .app-button { background: var(--teal); color: var(--background); text-decoration: none; font-weight: 600; }
+.shield-install-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; gap: 24px; margin: 28px 0 24px; }
+.shield-install-steps li { display: flex; align-items: flex-start; gap: 12px; }
+.shield-step-number { color: var(--teal); background: rgba(82, 224, 196, .08); border: 1px solid rgba(82, 224, 196, .18); border-radius: 10px; padding: 7px 10px; font-variant-numeric: tabular-nums; }
+.shield-install-steps h3 { font-size: 14px; margin: 3px 0 7px; }
+.shield-install-steps p, .shield-install-note { color: var(--text-2); font-size: 13px; }
+.shield-install-steps code { color: var(--foreground); overflow-wrap: anywhere; }
+.shield-install-note { border-top: 1px solid var(--line); padding-top: 18px; }
+@media (max-width: 900px) { .shield-install-heading { align-items: flex-start; flex-direction: column; } .shield-install-actions { align-items: flex-start; } .shield-install-steps { grid-template-columns: 1fr; gap: 20px; } }

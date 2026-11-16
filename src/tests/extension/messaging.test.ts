@@ -95,7 +95,7 @@ describe('extension runtime messaging',()=>{
     const posted:unknown[]=[],calls:unknown[]=[];let listener:((event:any)=>void)|undefined;
     const windowObject:any={addEventListener:(type:string,callback:(event:any)=>void)=>{if(type==='message')listener=callback;},postMessage:(message:unknown)=>posted.push(message)};
     const runtime={lastError:null,sendMessage:vi.fn((message:unknown,callback:(response:unknown)=>void)=>{calls.push(message);queueMicrotask(()=>callback({ok:true,connected:true,requestId:'settings-vm-7',masterEnabled:false,sessionActive:false,blockingActive:false,installedRuleCount:0,configuredDomainCount:5,enabledDomainCount:5,permittedDomainCount:4,activelyBlockedDomainCount:0,permissionMissingCount:1}));})};
-    runInNewContext(readFileSync('extension/content.js','utf8'),{window:windowObject,chrome:{runtime},FocusFlowShield:F});
+    runInNewContext(readFileSync('extension/content.js','utf8'),{window:Object.assign(windowObject,{location:{origin:'http://localhost:3000'}}),chrome:{runtime},FocusFlowShield:F});
     listener?.({source:windowObject,origin:'http://localhost:3000',data:{protocol:'FOCUSFLOW_SHIELD_V1',version:1,type:'status_request',requestId:'settings-vm-7'}});
     await new Promise(resolve=>setTimeout(resolve,0));
     expect(calls).toEqual([{namespace:'FF_SHIELD_INTERNAL_V1',kind:'status',requestId:'settings-vm-7'}]);
@@ -106,7 +106,7 @@ describe('extension runtime messaging',()=>{
     const posted:unknown[]=[],calls:unknown[]=[];let listener:((event:any)=>void)|undefined;
     const win:any={addEventListener:(type:string,callback:(event:any)=>void)=>{if(type==='message')listener=callback;},postMessage:(message:unknown)=>posted.push(message)};
     const runtime={lastError:null,sendMessage:vi.fn((message:unknown,callback:(response:unknown)=>void)=>{calls.push(message);queueMicrotask(()=>callback({ok:true,opened:true}));})};
-    runInNewContext(readFileSync('extension/content.js','utf8'),{window:win,chrome:{runtime},FocusFlowShield:F});
+    runInNewContext(readFileSync('extension/content.js','utf8'),{window:Object.assign(win,{location:{origin:'http://localhost:3000'}}),chrome:{runtime},FocusFlowShield:F});
     listener?.({source:win,origin:'http://localhost:3000',data:{protocol:'FOCUSFLOW_SHIELD_V1',version:1,type:'open_settings',requestId:'open-4'}});await new Promise(resolve=>setTimeout(resolve,0));
     expect(calls).toEqual([{namespace:'FF_SHIELD_INTERNAL_V1',kind:'open_settings'}]);expect(posted).toContainEqual({protocol:'FOCUSFLOW_SHIELD_V1',version:1,type:'open_settings_response',requestId:'open-4',ok:true});
   });

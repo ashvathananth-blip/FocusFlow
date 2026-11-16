@@ -3,6 +3,9 @@
  const RULE_BASE=41000, STALE_MS=90000, ALARM='focusflow-shield-maintenance', LEGACY_BYPASS_PREFIX='focusflow-bypass:', PROTOCOL='FOCUSFLOW_SHIELD_V1', SCHEMA=5, MANAGEMENT_API_VERSION=4;
  const RULE_IDS=Object.fromEntries([...DEFAULTS].map((d,i)=>[d,RULE_BASE+i]));
  const FOCUSFLOW_ORIGIN='http://localhost:3000',FOCUSFLOW_STUDY_URL=FOCUSFLOW_ORIGIN+'/study';
+ const ALLOWED_ORIGINS=[FOCUSFLOW_ORIGIN];
+ function isAllowedOrigin(origin){return ALLOWED_ORIGINS.includes(origin);}
+ function trustedWebsiteSender(sender){try{return isAllowedOrigin(sender?.origin)&&new URL(sender.tab.url).origin===sender.origin;}catch{return false;}}
  function permissionPatterns(domains){return domains.flatMap(d=>[`http://*.${d}/*`,`https://*.${d}/*`]);}
  function normalizeDomain(input){if(typeof input!=='string'||input.length>253||input!==input.trim()||/[\/*?#@:\s\[\]]/.test(input))throw Error('Enter a hostname only, without a scheme, path, wildcard, or query.');let h=input.toLowerCase().replace(/\.$/,'').replace(/^www\./,'');if(!h||h==='localhost'||/^\d+(\.\d+){3}$/.test(h)||h.includes(':')||!h.includes('.')||!h.split('.').every(x=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(x)))throw Error('Invalid domain.');if(h.endsWith('.localhost')||h.endsWith('.vercel.app')||h.endsWith('.chrome-extension')||h==='chrome-extension')throw Error('Trusted/internal domains cannot be blocked.');return h;}
  function matchesHost(host,domain){return host===domain||host.endsWith('.'+domain);}
@@ -34,7 +37,7 @@
  function selectFocusFlowTab(tabs){
   return (Array.isArray(tabs)?tabs:[]).filter(tab=>{
    if(typeof tab?.url!=='string')return false;
-   try{return new URL(tab.url).origin===FOCUSFLOW_ORIGIN;}catch{return false;}
+   try{return isAllowedOrigin(new URL(tab.url).origin);}catch{return false;}
   }).sort((a,b)=>{
    const isStudy=tab=>{try{return ['/study','/study/'].includes(new URL(tab.url).pathname);}catch{return false;}};
    return Number(isStudy(b))-Number(isStudy(a))||Number(!!b.active)-Number(!!a.active)||(b.lastAccessed||0)-(a.lastAccessed||0)||(a.id||0)-(b.id||0);
@@ -42,7 +45,7 @@
  }
  async function returnToFocusFlow(tabsApi,windowsApi){
   let tabs;
-  try{tabs=await tabsApi.query({url:FOCUSFLOW_ORIGIN+'/*'});}catch(error){throw Error(`Could not search for FocusFlow tabs: ${String(error&&error.message||error)}`);}
+  try{tabs=await tabsApi.query({url:ALLOWED_ORIGINS.map(origin=>origin+'/*')});}catch(error){throw Error(`Could not search for FocusFlow tabs: ${String(error&&error.message||error)}`);}
   const tab=selectFocusFlowTab(tabs);
   if(tab){
    if(!Number.isInteger(tab.id))throw Error('The existing FocusFlow tab has no valid tab identifier.');
@@ -68,6 +71,6 @@
  function trustedBlockedPage(sender,extensionId,blockedPageUrl){if(sender?.id!==extensionId||typeof sender.url!=='string')return false;try{const page=new URL(sender.url),blocked=new URL(blockedPageUrl);return page.origin===blocked.origin&&page.pathname===blocked.pathname;}catch{return false;}}
  function withTimeout(promise,timeoutMs,fallback){return new Promise(resolve=>{let done=false;const timer=setTimeout(()=>finish(fallback),Math.max(1,timeoutMs));function finish(value){if(done)return;done=true;clearTimeout(timer);resolve(value);}Promise.resolve(promise).then(finish,()=>finish(fallback));});}
  function defaults(){return {schemaVersion:SCHEMA,masterEnabled:true,sessionActive:false,lastHeartbeatAt:0,blockedDomains:DEFAULTS.map(domain=>({domain,enabled:true,isDefault:true})),manualOverride:false,emergencyDisabled:false,sessions:{},latestSession:null,syncLost:false};}
- const api={DEFAULTS,RULE_BASE,RULE_IDS,STALE_MS,ALARM,LEGACY_BYPASS_PREFIX,PROTOCOL,SCHEMA,MANAGEMENT_API_VERSION,FOCUSFLOW_ORIGIN,FOCUSFLOW_STUDY_URL,permissionPatterns,domainRecords,migrateState,domainList,redundantDomain,changeDomains,permittedDomains,permissionSummary,normalizeDomain,matchesHost,ruleFor,desiredRules,effectiveBlocking,setMasterEnabled,managementCommandError,sessionSyncLabel,selectFocusFlowTab,returnToFocusFlow,stale,obsoleteAlarmNames,isManagedRuleId,reconcilePlan,reconcileDynamicRules,sendRuntimeMessage,respondAsync,openOptionsWithFallback,withTimeout,acceptLifecycle,trustedBlockedPage,defaults};
+ const api={ALLOWED_ORIGINS,isAllowedOrigin,trustedWebsiteSender,DEFAULTS,RULE_BASE,RULE_IDS,STALE_MS,ALARM,LEGACY_BYPASS_PREFIX,PROTOCOL,SCHEMA,MANAGEMENT_API_VERSION,FOCUSFLOW_ORIGIN,FOCUSFLOW_STUDY_URL,permissionPatterns,domainRecords,migrateState,domainList,redundantDomain,changeDomains,permittedDomains,permissionSummary,normalizeDomain,matchesHost,ruleFor,desiredRules,effectiveBlocking,setMasterEnabled,managementCommandError,sessionSyncLabel,selectFocusFlowTab,returnToFocusFlow,stale,obsoleteAlarmNames,isManagedRuleId,reconcilePlan,reconcileDynamicRules,sendRuntimeMessage,respondAsync,openOptionsWithFallback,withTimeout,acceptLifecycle,trustedBlockedPage,defaults};
  if(typeof module!=='undefined')module.exports=api;root.FocusFlowShield=api;
 })(globalThis);

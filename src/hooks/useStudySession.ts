@@ -6,7 +6,7 @@ import { useGazeTracking, type Readout } from './useGazeTracking';
 import { focusNotifications } from '@/lib/focus/notifications';
 import { createSession, updateSession, type TimerEvent } from '@/lib/focus/timer-engine';
 import { clockDiscontinuity, trackingSignal, type ClockSnapshot } from '@/lib/focus/tracking-input';
-import { lifecycleMessage, makeShieldMessage, SHIELD_ORIGIN, SHIELD_PROTOCOL, validShieldAck } from '@/lib/extension/bridge';
+import { lifecycleMessage, makeShieldMessage, isAllowedShieldOrigin, SHIELD_PROTOCOL, validShieldAck } from '@/lib/extension/bridge';
 import { shouldPublishUiUpdate } from '@/lib/vision/scheduling';
 
 export function useStudySession() {
@@ -20,10 +20,10 @@ export function useStudySession() {
   const lastSessionPublishAt = useRef<number|null>(null);
   const shieldSession = useRef<string|null>(null), shieldSequence = useRef(0);
   const sendShield = useCallback((type:'start'|'pause'|'resume'|'end'|'complete'|'heartbeat'|'ping') => {
-    if(typeof window==='undefined'||window.location.origin!==SHIELD_ORIGIN)return;
+    if(typeof window==='undefined'||!isAllowedShieldOrigin(window.location.origin))return;
     const id=shieldSession.current ?? 'connection-probe';
     const message=makeShieldMessage(type,id,shieldSequence.current++);
-    window.postMessage(message,SHIELD_ORIGIN);
+    window.postMessage(message,window.location.origin);
   },[]);
   const dispatch = useCallback((event: TimerEvent) => {
     const before = engine.current;
@@ -76,7 +76,7 @@ export function useStudySession() {
     ping();
     const retry=setInterval(()=>{if(attempts<8)ping();},750);
     const ack=(event:MessageEvent)=>{
-      if(event.source!==window||event.origin!==SHIELD_ORIGIN)return;
+      if(event.source!==window||(event.origin!==window.location.origin||!isAllowedShieldOrigin(event.origin)))return;
       const data=event.data;
       if(data?.protocol!==SHIELD_PROTOCOL||data.version!==1||data.type!=='ack'||!validShieldAck(data))return;
       if(data.sequence>=shieldSequence.current)return;

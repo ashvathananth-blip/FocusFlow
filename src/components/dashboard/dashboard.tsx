@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { ShieldInstall } from '@/components/extension/shield-install';
 import { historySummary } from '@/lib/analytics/metrics';
 import { CREDIT_DISCLOSURE, SCORE_DISCLOSURE, dateLabel, episodeLabel, formatDuration, percent } from '@/components/analytics/ui';
 import { PageHeader } from '@/components/layout/page-header';
@@ -27,6 +28,7 @@ export function Dashboard() {
   return <main className="page-container">
     <PageHeader eyebrow="Study with a quieter screen" title="Welcome to Focus Flow" description="Focus Flow estimates whether your visual attention is directed toward the screen, then keeps a local record of your study sessions. It does not measure mental concentration." actions={<><Button asChild><Link href="/study"><Icon name="focus" />Start Focus Session</Link></Button><Link className="app-button button-quiet" href="/history">History</Link></>} />
     <div className="dashboard">
+      <ShieldInstall />
       <section className="today-band" aria-label="Today at a glance">
         <div className="today-main">
           <p className="meta-label">Saved in this browser</p>

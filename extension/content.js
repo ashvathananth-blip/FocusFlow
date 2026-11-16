@@ -1,5 +1,6 @@
 (() => {
- const PROTOCOL='FOCUSFLOW_SHIELD_V1', ORIGIN='http://localhost:3000', NS='FF_SHIELD_INTERNAL_V1', F=globalThis.FocusFlowShield;
+ const PROTOCOL='FOCUSFLOW_SHIELD_V1', ORIGIN=window.location.origin, NS='FF_SHIELD_INTERNAL_V1', F=globalThis.FocusFlowShield;
+ if(!F.isAllowedOrigin(ORIGIN))return;
  let lastSeq=-1,sessionId=null;
  const send=message=>F.sendRuntimeMessage(chrome.runtime,message,2500);
  const post=value=>window.postMessage({protocol:PROTOCOL,version:1,...value},ORIGIN);

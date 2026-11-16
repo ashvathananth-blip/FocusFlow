@@ -1,4 +1,4 @@
-# FocusFlow Distraction Shield (localhost configuration)
+# FocusFlow Distraction Shield
 
 This Manifest V3 companion uses the service worker as the only owner of session/blocking state. Install by opening `chrome://extensions`, enabling **Developer mode**, choosing **Load unpacked**, and selecting this `extension/` directory. Incognito is disabled by default. Disabling or removing the extension disables the shield; this is a productivity aid, not tamper-proof enforcement.
 
@@ -6,7 +6,7 @@ This Manifest V3 companion uses the service worker as the only owner of session/
 
 `storage` persists session state and preferences; `alarms` reconciles stale session status when the worker sleeps; `declarativeNetRequestWithHostAccess` provides dynamic redirects while requiring explicit host grants. The extension requests host access individually for each default/custom domain before enabling its rules. Chrome displays a site-access prompt. Custom entries are hostnames only; schemes, paths, wildcards, IPs, localhost and extension/internal names are rejected. Redirected `blocked.html` is web-accessible because Chrome requires it for extensionPath redirects. Only the blocked-page assets are exposed.
 
-The only trusted FocusFlow origin is `http://localhost:3000`. Production integration is unconfigured. Later, add the exact HTTPS origin (not `*.vercel.app`) to `host_permissions` and `content_scripts.matches`, add its exact match to the page bridge allowlist, and test that deployed origin.
+The currently configured trusted FocusFlow origin is `http://localhost:3000`. Production integration is unconfigured. Later, add the exact HTTPS origin (not `*.vercel.app`) to `host_permissions` and `content_scripts.matches`, add its exact match to the page bridge allowlist, and test that deployed origin.
 
 ## Behavior and limitations
 
@@ -31,3 +31,7 @@ Choose **Manage blocked websites** in the popup, or **Manage blocked websites** 
 The website's `status_request` bridge response is read-only and contains only connection/session/protection booleans and counts; it never returns domain names, storage, or rule IDs. Its `open_settings` bridge command has no destination arguments and only opens the extension-owned options page. Domain mutations are accepted only from extension pages by the service worker.
 
 The blocked page does not retain or reconstruct the original URL. The DNR extensionPath redirect supplies the configured domain in its fixed redirect target, not the full intercepted URL. Capturing full main-frame destinations would require Chrome's broad `webNavigation` permission, which reports navigation URLs and triggers a permission warning. FocusFlow does not request that browsing-history-like capability; the blocked page offers a fixed **Return to FocusFlow** link. No unvalidated URL is navigated.
+
+## Free judge download
+
+Run `python3 scripts/package-shield.py` from the repository root to create `public/downloads/focusflow-distraction-shield.zip` with the manifest at its root and a SHA-256 checksum in `release/SHA256SUMS`. Judges download and extract the ZIP, open `chrome://extensions`, enable Developer mode, and select the extracted folder with Load unpacked. Reload FocusFlow, then grant website permissions from the extension popup. No payment or Chrome Web Store registration is required. See `release/README.md` for draft release preparation.
