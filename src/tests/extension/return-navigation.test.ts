@@ -8,7 +8,7 @@ describe('safe Return to FocusFlow navigation',()=>{
     const tabs={query:vi.fn(async()=>[{id:8,url:'http://localhost:3000/study',windowId:3,active:false}]),update:vi.fn(async()=>({})),create:vi.fn()};
     const windows={update:vi.fn(async()=>({}))};
     await expect(F.returnToFocusFlow(tabs,windows)).resolves.toEqual({opened:false,tabId:8,matchedStudy:true});
-    expect(tabs.query).toHaveBeenCalledWith({url:'http://localhost:3000/*'});
+    expect(tabs.query).toHaveBeenCalledWith({url:F.ALLOWED_ORIGINS.map((origin:string)=>origin+'/*')});
     expect(tabs.update).toHaveBeenCalledExactlyOnceWith(8,{active:true});
     expect(windows.update).toHaveBeenCalledExactlyOnceWith(3,{focused:true});
     expect(tabs.create).not.toHaveBeenCalled();

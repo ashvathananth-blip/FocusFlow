@@ -22,7 +22,7 @@ async function reconcile(now=Date.now()){
  return {state:s,installed:activeDomains.length,activeDomains,missingPermissions,blockingActive:activeDomains.length>0,configuredDomainCount:domains.length,enabledDomainCount:enabled.length,permittedDomainCount:granted.length,activelyBlockedDomainCount:activeDomains.length,permissionMissingCount:missingPermissions.length,domains:domains.map(x=>({...x,permitted:granted.includes(x.domain),activelyBlocked:activeDomains.includes(x.domain)}))};
 }
 async function message(payload,sender){
- if(!sender||sender.origin!=='http://localhost:3000'||sender.tab?.url?.startsWith('http://localhost:3000/')!==true)throw Error('Untrusted origin.');
+ if(!F.trustedWebsiteSender(sender))throw Error('Untrusted origin.');
  const current=await state(),accepted=F.acceptLifecycle(current,payload,Date.now());
  if(!accepted.ok&&payload.type!=='ping')throw Error('Stale or invalid lifecycle message.');
  if(accepted.ok&&payload.type!=='ping')await save({...accepted.state,syncLost:false});
@@ -30,13 +30,13 @@ async function message(payload,sender){
 }
 async function statusRequest(request,sender){
  if(!request||Object.keys(request).sort().join(',')!=='kind,namespace,requestId'||typeof request.requestId!=='string'||request.requestId.length>100)throw Error('Invalid status request.');
- if(!sender||sender.origin!=='http://localhost:3000'||sender.tab?.url?.startsWith('http://localhost:3000/')!==true)throw Error('Untrusted origin.');
+ if(!F.trustedWebsiteSender(sender))throw Error('Untrusted origin.');
  const result=await reconcile();
  return {requestId:request.requestId,connected:true,managementApiVersion:F.MANAGEMENT_API_VERSION,masterEnabled:result.state.masterEnabled!==false,sessionActive:!!result.state.sessionActive,blockingActive:result.blockingActive,installedRuleCount:result.installed,configuredDomainCount:result.configuredDomainCount,enabledDomainCount:result.enabledDomainCount,permittedDomainCount:result.permittedDomainCount,activelyBlockedDomainCount:result.activelyBlockedDomainCount,permissionMissingCount:result.permissionMissingCount};
 }
 async function openSettings(request,sender){
  if(!request||Object.keys(request).sort().join(',')!=='kind,namespace'||request.kind!=='open_settings'||request.namespace!=='FF_SHIELD_INTERNAL_V1')throw Error('Invalid settings command.');
- if(!sender||sender.origin!=='http://localhost:3000'||sender.tab?.url?.startsWith('http://localhost:3000/')!==true)throw Error('Untrusted origin.');
+ if(!F.trustedWebsiteSender(sender))throw Error('Untrusted origin.');
  await chrome.runtime.openOptionsPage();
  return {opened:true};
 }

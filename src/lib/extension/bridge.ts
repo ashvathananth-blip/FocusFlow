@@ -1,5 +1,7 @@
 export const SHIELD_PROTOCOL = 'FOCUSFLOW_SHIELD_V1';
 export const SHIELD_ORIGIN = 'http://localhost:3000';
+export const SHIELD_ALLOWED_ORIGINS: readonly string[] = [SHIELD_ORIGIN];
+export function isAllowedShieldOrigin(origin:string){return SHIELD_ALLOWED_ORIGINS.includes(origin);}
 export type ShieldLifecycle = 'start'|'pause'|'resume'|'end'|'complete'|'heartbeat'|'ping';
 export type ShieldWebsiteStatus = {connected:boolean;masterEnabled:boolean;sessionActive:boolean;blockingActive:boolean;installedRuleCount:number;configuredDomainCount:number;enabledDomainCount:number;permittedDomainCount:number;activelyBlockedDomainCount:number;permissionMissingCount:number};
 export function validShieldWebsiteStatus(value:unknown):value is ShieldWebsiteStatus {
